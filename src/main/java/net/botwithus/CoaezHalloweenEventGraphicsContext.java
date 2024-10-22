@@ -165,14 +165,13 @@ public class CoaezHalloweenEventGraphicsContext extends ScriptGraphicsContext {
             coaezHalloweenEvent.maxInteractionsBeforePause = ImGui.InputInt("Max interactions before break", coaezHalloweenEvent.maxInteractionsBeforePause);
             coaezHalloweenEvent.minWaitTime = ImGui.InputInt("Min wait time (seconds)", coaezHalloweenEvent.minWaitTime);
             coaezHalloweenEvent.maxWaitTime = ImGui.InputInt("Max wait time (seconds)", coaezHalloweenEvent.maxWaitTime);
-
             ImGui.Separator();
 
-            // if (ImGui.Button("Maze spooky event")) {
-            //     coaezHalloweenEvent.setBotState(CoaezHalloweenEvent.BotState.MAZE);
-            //     coaezHalloweenEvent.lastActivityState = CoaezHalloweenEvent.BotState.MAZE;
-            //     coaezHalloweenEvent.getConsole().println("Switched to Maze spooky event.");
-            // }
+             if (ImGui.Button("Maze spooky event")) {
+                 coaezHalloweenEvent.setBotState(CoaezHalloweenEvent.BotState.MAZE);
+                 coaezHalloweenEvent.lastActivityState = CoaezHalloweenEvent.BotState.MAZE;
+                 coaezHalloweenEvent.getConsole().println("Switched to Maze spooky event.");
+             }
 
             saveConfig();
             ImGui.End();

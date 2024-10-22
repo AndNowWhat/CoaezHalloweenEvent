@@ -9,6 +9,7 @@ import net.botwithus.rs3.game.hud.interfaces.Interfaces;
 import net.botwithus.rs3.game.inventories.InventoryContainer;
 import net.botwithus.rs3.game.minimenu.MiniMenu;
 import net.botwithus.rs3.game.minimenu.actions.ComponentAction;
+import net.botwithus.rs3.game.minimenu.actions.SelectableAction;
 import net.botwithus.rs3.game.movement.Movement;
 import net.botwithus.rs3.game.movement.NavPath;
 import net.botwithus.rs3.game.movement.TraverseEvent;
@@ -84,18 +85,14 @@ public class CoaezHalloweenEvent extends LoopingScript {
     private long lastAnimationTime = 0;
     private final int ANIMATION_ID_RITUAL = 6298;
     private final long RITUAL_TIMEOUT_MS = 5000;
-//    private final Coordinate mazeStartLocation = new Coordinate(624,1715,0);
-//    private final Area mazeEntranceArea = new Area.Circular(mazeStartLocation, 5);
-//    boolean usedDoor = false;
-//
-//    private final Area bossAreaZone1 = new Area.Rectangular(new Coordinate(699, 1729, 0), new Coordinate(700, 1750, 0));
-//    private final Area bossAreaZone2 = new Area.Rectangular(new Coordinate(699, 1749, 0), new Coordinate(717, 1750, 0));
-//    private final Area bossAreaZone3 = new Area.Rectangular(new Coordinate(699, 1729, 0), new Coordinate(720, 1731, 0));
-//    private final Area bossAreaZone4 = new Area.Rectangular(new Coordinate(718, 1729, 0), new Coordinate(720, 1749, 0));
-//    private final Area gateSearchArea = new Area.Rectangular(new Coordinate(697, 1728, 0), new Coordinate(722, 1752, 0));
-//    private final int[][] directions = { {0, 1}, {1, 0}, {0, -1}, {-1, 0} }; // Up, Right, Down, Left
-//    private final Coordinate mazeStart = new Coordinate(660, 1690, 0);
-//    private final Coordinate mazeEnd = new Coordinate(759, 1789, 0);
+    private final Coordinate mazeStartLocation = new Coordinate(624,1715,0);
+    private final Area mazeEntranceArea = new Area.Circular(mazeStartLocation, 5);
+    boolean usedDoor = false;
+
+    private final Coordinate implingCoords = new Coordinate(707,1726,0);
+    private final Area implingArea = new Area.Rectangular(new Coordinate(698,1726,0), new Coordinate(712,1731,0));
+    private final Area innerBossArea = new Area.Rectangular(new Coordinate(702,1732,0), new Coordinate(178,1736,0));
+    private final Area fenceArea = new Area.Rectangular(new Coordinate(708, 1731, 0), new Coordinate(711, 1732, 0));
 
     enum TransferOptionType {
         ONE(2, 33882205),
@@ -153,6 +150,9 @@ public class CoaezHalloweenEvent extends LoopingScript {
             handleMaizeMazeLootTokens();
         }
         switch (botState) {
+            case MAZE:
+                handleMaze(player);
+                return;
             case TURNINCOLLECTIONS:
                 handleCollectionTurnIn(player);
                 break;
@@ -174,6 +174,81 @@ public class CoaezHalloweenEvent extends LoopingScript {
         }
     }
 
+    private void handleMaze(Player player) {
+        if (!mazeEntranceArea.contains(player.getCoordinate()) && !usedDoor) {
+            println("Moving to maze entrance at " + mazeEntranceArea);
+            Movement.walkTo(mazeEntranceArea.getCoordinate().getX(), mazeEntranceArea.getCoordinate().getY(), false);
+            Execution.delayUntil(5000, () -> mazeEntranceArea.contains(player));
+            return;
+        }
+
+        EntityResultSet<SceneObject> mazeDoorResults = SceneObjectQuery.newQuery().name("Maize Maze portal").option("Enter").results();
+        SceneObject mazeEntranceDoor = mazeDoorResults.nearest();
+
+        if (mazeEntranceDoor != null && !usedDoor) {
+            println("Entering the maze...");
+            mazeEntranceDoor.interact("Enter");
+            Execution.delayUntil(5000, () -> player.getCoordinate().getRegionId() != 2330);
+            Execution.delay(random.nextLong(2000, 3000));
+            usedDoor = true;
+        }
+
+        if (!implingArea.contains(player.getCoordinate())) {
+            println("Not in the impling area, navigate to the area manually.");
+            Execution.delay(random.nextLong(2000, 3000));
+            return;
+        }
+
+        if (!Backpack.contains("Bone club", 10)) {
+            EntityResultSet<Npc> results = NpcQuery.newQuery().name("Zombie impling").option("Catch").inside(implingArea).results();
+            Npc impling = results.nearest();
+
+            if (impling != null && impling.interact("Catch")) {
+                println("Catching a Zombie impling...");
+                Execution.delay(random.nextLong(1200, 2000));
+                Execution.delayUntil(3000, () -> player.getAnimationId() == -1);
+            } else {
+                println("No Zombie impling found, waiting...");
+                Execution.delay(random.nextLong(100, 200));
+            }
+        } else {
+            Execution.delayUntil(4000, () -> getLocalPlayer().getAnimationId() == -1);
+            println("Collected 10 Bone clubs. Preparing to jump over the fence...");
+            EntityResultSet<SceneObject> fenceResults = SceneObjectQuery.newQuery().name("Fence obstacle").option("Jump over").inside(fenceArea).results();
+            SceneObject fence = fenceResults.nearest();
+
+            if (fence != null && fence.interact("Jump over")) {
+                println("Jumping over the fence...");
+                Execution.delayUntil(8000, () -> player.getAnimationId() == 19972);
+                Execution.delayUntil(2000, () -> player.getAnimationId() != 19972);
+            }
+
+            println("Preparing to fight the boss...");
+
+            while (Backpack.contains("Bone club")) {
+                println("Using Bone Clubs to spook the boss...");
+
+                EntityResultSet<Npc> bossResults = NpcQuery.newQuery().name("Skaraxxi").option("Spook (melee)").results();
+                Npc boss = bossResults.nearest();
+
+                if (boss != null) {
+                    if (boss.interact("Spook (melee)")) {
+                        println("Spooked Skaraxxi");
+                        Execution.delay(random.nextLong(1000, 1200));
+                    }
+                } else {
+                    println("Could not find Skaraxxi!");
+                    break;
+                }
+            }
+
+            println("Out of Bone Clubs or boss defeated!");
+            Execution.delay(random.nextLong(5000, 8000));
+            usedDoor = false;
+        }
+    }
+
+
     private void handleMaizeMazeLootTokens() {
         String[] collectionItems = {
                 "Maize Maze loot token (double)", "Maize Maze loot token (triple)"
@@ -187,6 +262,7 @@ public class CoaezHalloweenEvent extends LoopingScript {
             }
         }
     }
+
 
     private void handleCollectionTurnIn(Player player) {
 
